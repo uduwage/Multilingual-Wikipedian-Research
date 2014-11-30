@@ -10,6 +10,8 @@ import traceback
 import re
 import time
 import argparse
+import utils
+import pdb
 
 NOW = time.strftime("%Y_%m_%d_%H_%M")
 OUT_DIR_LOGS = os.path.expanduser('~/logs')
@@ -64,12 +66,13 @@ class CollectUsersWithTemplate():
 
 	def __init__(self, language, limit):
 		self.disconnect_database()
-		self.con = None
-		self.cur = None
-		self.con2 = None
-		self.cur2 = None
+		#self.con = None
+		#self.cur = None
+		#self.con2 = None
+		#self.cur2 = None
 		self.language = language
-		self.connect_database()
+		#self.connect_database()
+		self.cur = utils.connect_database(self.language)
 		self.limit = limit
 		if self.language == 'ho' or self.language == 'aa' or self.language == 'cho' or self.language == 'ng':
 			self.translatedString = ur'''User'''
@@ -122,7 +125,7 @@ class CollectUsersWithTemplate():
 				return data['query']['namespaces']['2']['*']
 		except pywikibot.exceptions.NoSuchSite, e:
 			logging.error(e)		
-
+	"""		
 	def connect_database(self):
 		try:
 			format_lang_string = self.language.replace('-','_')
@@ -140,6 +143,7 @@ class CollectUsersWithTemplate():
 			self.cur2 = self.con2.cursor()
 		except mdb.Error, e:
 			logging.error("Unable to establish connection")
+	"""
 
 	def disconnect_database(self):
 		try:
@@ -469,6 +473,7 @@ class CollectUsersWithTemplate():
 								matched_template_object = lang_regx.match(template_category)
 								matched_template_no_prof = lang_regx_short.match(template_category)
 							
+							## if the language is nl we have already match the template so we can create a record in the csv.
 							if matched_template_object is not None:
 								matched_lang_code = matched_template_object.group('lcode')
 								if matched_lang_code in unicoded_list or matched_lang_code in unicode_iso_list:
@@ -548,27 +553,32 @@ def main():
 	log = logging.getLogger()
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('lang_file', type=str, help='which language file to read in as data collection')
-	args = parser.parse_args()
+	parser.add_argument('-f','--file', type=str, help='which language file to read in as data collection', required=True)
+	parser.add_argument('-l', '--limit', default='')
+	args = vars(parser.parse_args())
 
-	create_logger(log, args.lang_file)
+	create_logger(log, args['file'])
 
-	if args.lang_file == 'test':
+	# Multiple options to pick the list of languages
+	if args['file'] == 'test':
 		language_list = getLanguageCodes(os.path.expanduser("~/template_data/lang_codes/test_lang.csv"))
-	elif args.lang_file == 'top50':
+	elif args['file'] == 'top50':
 		language_list = getLanguageCodes(os.path.expanduser("~/template_data/lang_codes/top_50_langs.csv"))
-	elif args.lang_file == 'second50':
+	elif args['file'] == 'second50':
 		language_list = getLanguageCodes(os.path.expanduser("~/template_data/lang_codes/second_50_langs.csv"))
-	elif args.lang_file == 'after100':
+	elif args['file'] == 'after100':
 		language_list = getLanguageCodes(os.path.expanduser("~/template_data/lang_codes/after_100_langs.csv"))
-	elif args.lang_file == 'all':
+	elif args['file'] == 'all':
 		language_list = getLanguageCodes(os.path.expanduser("~/template_data/lang_codes/wiki_lang_codes_latest.csv"))
 
+	# During the testing use pass limit to the query
 	for language_code in language_list:
-		babelUsers = CollectUsersWithTemplate(language_code, '')
-		#babelUsers.get_babel_template_users()
-		#import pdb
-		#pdb.set_trace()
+		limit = None
+		if args['limit'] != '':
+			limit = 'limit ' + args['limit']
+		else:
+			limit = args['limit']
+		babelUsers = CollectUsersWithTemplate(language_code, limit)
 		babelUsers.get_all_template_users()
 
 if __name__=="__main__":
